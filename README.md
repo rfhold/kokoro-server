@@ -55,6 +55,12 @@ they do not require a GPU or download model data.
 The guarded ownership cutover and rollback procedure is maintained in the
 homelab repository at `docs/operations/speech-service-extraction.md`.
 
+## License
+
+Kokoro Server is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
+Third-party components and the runtime-downloaded model retain their own terms.
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for key license boundaries.
+
 ## Repository Map
 
 | Path                    | Responsibility                                             |

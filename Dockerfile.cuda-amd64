@@ -37,6 +37,8 @@ COPY audio_writer.py main.py /build/
 
 FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -53,6 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder --chown=nonroot:nonroot /app/.venv /app/.venv
 COPY --from=builder --chown=nonroot:nonroot /build/audio_writer.py /build/main.py /app/
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/licenses/kokoro-server/
 
 USER nonroot:nonroot
 
