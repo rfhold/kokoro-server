@@ -70,7 +70,7 @@ spec:
                   --local dockerfile=. \
                   --opt filename=Dockerfile.cuda-amd64 \
                   --opt platform=linux/amd64 \
-                  --output "type=image,name=$(params.image),$(params.image-latest),push=true"
+                  --output type=image,\"name=$(params.image),$(params.image-latest)\",push=true
         params:
           - name: image
             value: "{{ CONTAINER_REGISTRY }}/rfhold/kokoro-service:{{ revision }}"
