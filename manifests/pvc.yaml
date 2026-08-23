@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kokoro-model-cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: shared-fs
+  resources:
+    requests:
+      storage: 5Gi

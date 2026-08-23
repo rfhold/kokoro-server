@@ -1,0 +1,11 @@
+.git
+.github
+.tekton
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+tests
+manifests
+README.md
+AGENTS.md

@@ -1,0 +1,118 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: kokoro-push
+  annotations:
+    pipelinesascode.tekton.dev/on-event: "[push]"
+    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+    pipelinesascode.tekton.dev/max-keep-runs: "2"
+    pipelinesascode.tekton.dev/task: "[https://git.holdenitdown.net/rfhold/homelab/raw/branch/main/src/components/tekton-tasks/git-clone.yaml, https://git.holdenitdown.net/rfhold/homelab/raw/branch/main/src/components/tekton-tasks/kustomize-deploy.yaml]"
+spec:
+  taskRunTemplate:
+    podTemplate:
+      nodeSelector:
+        kubernetes.io/hostname: apollo
+  params:
+    - name: repo-url
+      value: "{{ repo_url }}"
+    - name: revision
+      value: "{{ revision }}"
+  pipelineSpec:
+    params:
+      - name: repo-url
+        type: string
+      - name: revision
+        type: string
+    workspaces:
+      - name: source
+    tasks:
+      - name: fetch-repository
+        taskRef:
+          apiVersion: tekton.dev/v1
+          kind: Task
+          name: git-clone
+        params:
+          - name: repo-url
+            value: $(params.repo-url)
+          - name: revision
+            value: $(params.revision)
+          - name: git-auth-secret
+            value: "{{ git_auth_secret }}"
+        workspaces:
+          - name: output
+            workspace: source
+
+      - name: build-kokoro
+        runAfter:
+          - fetch-repository
+        taskSpec:
+          params:
+            - name: image
+              type: string
+            - name: image-latest
+              type: string
+            - name: buildkit-addr
+              type: string
+          workspaces:
+            - name: source
+          steps:
+            - name: build
+              image: moby/buildkit:v0.26.3
+              workingDir: $(workspaces.source.path)
+              script: |
+                #!/bin/sh
+                set -eu
+                buildctl \
+                  --addr "tcp://$(params.buildkit-addr)" \
+                  build \
+                  --frontend dockerfile.v0 \
+                  --local context=. \
+                  --local dockerfile=. \
+                  --opt filename=Dockerfile.cuda-amd64 \
+                  --opt platform=linux/amd64 \
+                  --output "type=image,name=$(params.image),$(params.image-latest),push=true"
+        params:
+          - name: image
+            value: "{{ CONTAINER_REGISTRY }}/rfhold/kokoro-service:{{ revision }}"
+          - name: image-latest
+            value: "{{ CONTAINER_REGISTRY }}/rfhold/kokoro-service:cuda-amd64"
+          - name: buildkit-addr
+            value: "{{ BUILDKIT_AMD64_ADDR }}"
+        workspaces:
+          - name: source
+            workspace: source
+
+      - name: deploy-kokoro
+        runAfter:
+          - build-kokoro
+        taskRef:
+          apiVersion: tekton.dev/v1
+          kind: Task
+          name: kustomize-deploy
+        params:
+          - name: overlay-path
+            value: manifests
+          - name: image
+            value: cr.holdenitdown.net/rfhold/kokoro-service
+          - name: image-tag
+            value: "{{ revision }}"
+          - name: context
+            value: pantheon
+          - name: namespace
+            value: kokoro
+          - name: deployment
+            value: kokoro-service
+          - name: timeout
+            value: 600s
+        workspaces:
+          - name: source
+            workspace: source
+  workspaces:
+    - name: source
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi

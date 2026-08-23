@@ -1,0 +1,67 @@
+# syntax=docker/dockerfile:1
+
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04 AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    git \
+    python3 \
+    python3-dev \
+    python3-venv && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:0.8.13 /uv /uvx /bin/
+
+RUN uv venv /app/.venv
+
+COPY requirements.txt .
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --python=/app/.venv/bin/python3 \
+    torch==2.6.0 torchaudio==2.6.0 \
+    --index-url https://download.pytorch.org/whl/cu126
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --python=/app/.venv/bin/python3 -r requirements.txt
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --python=/app/.venv/bin/python3 \
+    en_core_web_sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+
+RUN /app/.venv/bin/python3 -m unidic download
+
+COPY audio_writer.py main.py /build/
+
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    espeak-ng \
+    espeak-ng-data \
+    ffmpeg \
+    libsndfile1 \
+    python3 && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd --gid 65532 nonroot && \
+    useradd --uid 65532 --gid nonroot --shell /bin/false --create-home nonroot
+
+COPY --from=builder --chown=nonroot:nonroot /app/.venv /app/.venv
+COPY --from=builder --chown=nonroot:nonroot /build/audio_writer.py /build/main.py /app/
+
+USER nonroot:nonroot
+
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["/app/.venv/bin/uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

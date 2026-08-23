@@ -1,0 +1,25 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: kokoro-service-route
+  labels:
+    app: kokoro-service
+spec:
+  hostnames:
+    - kokoro.holdenitdown.net
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: default-gateway
+      namespace: ingress
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - kind: Service
+          name: kokoro-service
+          port: 8000
+      timeouts:
+        request: 60s

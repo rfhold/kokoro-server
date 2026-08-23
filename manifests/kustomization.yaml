@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kokoro
+
+resources:
+  - namespace.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - httproute.yaml
+  - httproute-agent-gateway.yaml
+
+images:
+  - name: cr.holdenitdown.net/rfhold/kokoro-service
+    newName: cr.holdenitdown.net/rfhold/kokoro-service
+    newTag: cuda-amd64
+
+configMapGenerator:
+  - name: kokoro-config
+    literals:
+      - KOKORO_DEVICE=cuda
+      - KOKORO_REPO_ID=hexgrad/Kokoro-82M
