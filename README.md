@@ -30,7 +30,7 @@ an exact `POST /v1/audio/speech` match.
 
 The first model load downloads model data to the Hugging Face cache. The
 deployment mounts the 5 Gi `shared-fs` PVC `kokoro-model-cache` at that cache
-path and starts with zero replicas.
+path and runs one replica.
 
 ## Development
 
